@@ -8,7 +8,7 @@ import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
 import 'katex/dist/katex.min.css'
 import { CodeBlock } from './code-block'
-import type { ComponentPropsWithoutRef, ReactNode } from 'react'
+import React, { type ComponentPropsWithoutRef, type ReactNode } from 'react'
 
 interface MarkdownRendererProps {
   content: string
@@ -26,43 +26,42 @@ function extractText(children: ReactNode): string {
   return ''
 }
 
-// Custom plugin to add an inline blinking cursor at the end of the text
+// Custom plugin to add an inline non-blinking cursor at the deepest end of the content
 const addCursorPlugin = () => (tree: any) => {
   if (!tree.children) return
-
-  let lastTextNode: any = null
-  let parentOfLastTextNode: any = null
-
-  // Helper to recursively find the very last text node
-  const findLastTextNode = (node: any, parent: any = null) => {
-    if (node.type === 'text') {
-      lastTextNode = node
-      parentOfLastTextNode = parent
-    } else if (node.children) {
-      for (let i = 0; i < node.children.length; i++) {
-        findLastTextNode(node.children[i], node)
-      }
-    }
-  }
-
-  findLastTextNode(tree)
 
   const cursorNode = {
     type: 'element',
     tagName: 'span',
     properties: {
-      className: ['inline-block', 'w-[2px]', 'h-4', 'bg-primary', 'ml-1', 'align-middle', 'animate-pulse']
+      className: ['inline-block', 'w-[2px]', 'h-4', 'bg-primary', 'ml-1', 'align-middle'],
+      'data-cursor': true
     },
     children: []
   }
 
-  if (parentOfLastTextNode) {
-    // Append the cursor node inside the same parent as the last text node
-    parentOfLastTextNode.children.push(cursorNode)
-  } else {
-    // If there's no text yet, append it directly to the root
-    tree.children.push(cursorNode)
+  // Find the deepest last child to ensure the cursor stays inline
+  let current = tree
+  const voidElements = ['br', 'hr', 'img', 'input', 'link', 'meta']
+
+  while (current.children && current.children.length > 0) {
+    const lastChild = current.children[current.children.length - 1]
+
+    if (lastChild.type === 'text') {
+      current.children.push(cursorNode)
+      return
+    }
+
+    if (lastChild.type === 'element' && voidElements.includes(lastChild.tagName)) {
+      current.children.push(cursorNode)
+      return
+    }
+
+    current = lastChild
   }
+
+  current.children = current.children || []
+  current.children.push(cursorNode)
 }
 
 export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
@@ -90,8 +89,12 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
             const isBlock = match || content.includes('\n')
 
             if (isBlock) {
+              const childrenArray = React.Children.toArray(children)
+              const hasCursor = childrenArray.some(
+                child => React.isValidElement(child) && (child.props as any)?.['data-cursor']
+              )
               return (
-                <CodeBlock language={match?.[1]}>{content}</CodeBlock>
+                <CodeBlock language={match?.[1]} hasCursor={hasCursor}>{content}</CodeBlock>
               )
             }
 

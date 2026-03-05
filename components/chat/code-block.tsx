@@ -9,9 +9,10 @@ interface CodeBlockProps {
   children: string
   language?: string
   className?: string
+  hasCursor?: boolean
 }
 
-export function CodeBlock({ children, language, className }: CodeBlockProps) {
+export function CodeBlock({ children, language, className, hasCursor }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [highlighted, setHighlighted] = useState('')
@@ -23,7 +24,7 @@ export function CodeBlock({ children, language, className }: CodeBlockProps) {
     // Use highlight.js to highlight the code
     const lang = language || 'plaintext'
     const code = children.replace(/\n$/, '')
-    
+
     try {
       const result = hljs.highlight(code, { language: lang })
       setHighlighted(result.value)
@@ -94,8 +95,12 @@ export function CodeBlock({ children, language, className }: CodeBlockProps) {
           <code
             ref={codeRef}
             className={cn('block px-4 py-3 font-mono text-[13px] leading-relaxed', language && `language-${language}`)}
-            dangerouslySetInnerHTML={{ __html: highlighted || children }}
-          />
+          >
+            <span dangerouslySetInnerHTML={{ __html: highlighted || children }} />
+            {hasCursor && (
+              <span className="inline-block w-[2px] h-4 bg-primary ml-1 align-middle" />
+            )}
+          </code>
         </pre>
       </div>
 
