@@ -17,7 +17,64 @@ export async function GET(req: NextRequest) {
     }
 
     const data = await response.json()
-    return new Response(JSON.stringify(data), {
+    const models = data.models || []
+
+    // Fetch details for each model to get context length and capabilities
+    const enrichedModels = await Promise.all(
+      models.map(async (model: any) => {
+        try {
+          const detailResponse = await fetch(`${ollamaUrl}/api/show`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: model.name }),
+          })
+
+          if (detailResponse.ok) {
+            const detailData = await detailResponse.json()
+            
+            // Extract context length
+            let contextLength = 4096
+            if (detailData.model_info) {
+              for (const [key, value] of Object.entries(detailData.model_info)) {
+                if (key.endsWith('.context_length') && typeof value === 'number') {
+                  contextLength = value
+                  break
+                }
+              }
+            }
+
+            const capabilities = detailData.capabilities || []
+            
+            // Check for vision via projector
+            if (detailData.projector_info && !capabilities.includes('vision')) {
+              capabilities.push('vision')
+            }
+
+            // Check for tools via template
+            const template = detailData.template || ''
+            if ((template.includes('tool_call') || template.includes('tool_code') || template.includes('tools')) && !capabilities.includes('tools')) {
+              capabilities.push('tools')
+            }
+            
+            // Llama 3.1+ support tools even if not in template explicitly sometimes
+            if (model.name.includes('llama3.1') || model.name.includes('llama3.2') || model.name.includes('qwen') || model.name.includes('mistral')) {
+              if (!capabilities.includes('tools')) capabilities.push('tools')
+            }
+
+            return {
+              ...model,
+              contextLength,
+              capabilities,
+            }
+          }
+        } catch (e) {
+          console.error(`Failed to fetch details for ${model.name}:`, e)
+        }
+        return { ...model, contextLength: 4096, capabilities: [] }
+      })
+    )
+
+    return new Response(JSON.stringify({ models: enrichedModels }), {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (error) {

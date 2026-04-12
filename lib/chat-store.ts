@@ -31,6 +31,7 @@ export function getSettings(): ChatSettings {
       topP: 0.9,
       topK: 40,
       maxTokens: 4096,
+      maxContextLength: 0,
       repeatPenalty: 1.1,
       seed: null,
     }
@@ -44,6 +45,7 @@ export function getSettings(): ChatSettings {
         topP: 0.9,
         topK: 40,
         maxTokens: 4096,
+        maxContextLength: 0,
         repeatPenalty: 1.1,
         seed: null,
       }, ...JSON.parse(data) }
@@ -54,6 +56,7 @@ export function getSettings(): ChatSettings {
       topP: 0.9,
       topK: 40,
       maxTokens: 4096,
+      maxContextLength: 0,
       repeatPenalty: 1.1,
       seed: null,
     }
@@ -64,6 +67,7 @@ export function getSettings(): ChatSettings {
       topP: 0.9,
       topK: 40,
       maxTokens: 4096,
+      maxContextLength: 0,
       repeatPenalty: 1.1,
       seed: null,
     }

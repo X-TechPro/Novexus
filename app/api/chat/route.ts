@@ -3,23 +3,25 @@ import { NextRequest } from 'next/server'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { messages, model, ollamaUrl, temperature, topP, topK, maxTokens, repeatPenalty, seed, think } = body
-
+    const { messages, model, ollamaUrl, temperature, topP, topK, maxTokens, repeatPenalty, seed, think, numCtx, tools, stream: reqStream } = body
+ 
     const ollamaEndpoint = `${ollamaUrl || 'http://localhost:11434'}/api/chat`
-
+ 
     const response = await fetch(ollamaEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model,
         messages,
-        stream: true,
+        stream: reqStream ?? true,
+        tools,
         think: think ?? false,
         options: {
           temperature: temperature ?? 0.7,
           top_p: topP ?? 0.9,
           top_k: topK ?? 40,
           num_predict: maxTokens ?? 4096,
+          num_ctx: numCtx ?? 4096,
           repeat_penalty: repeatPenalty ?? 1.1,
           ...(seed !== null && seed !== undefined ? { seed } : {}),
         },

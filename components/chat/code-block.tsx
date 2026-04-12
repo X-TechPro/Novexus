@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Check, Copy, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import hljs from 'highlight.js'
@@ -15,25 +15,28 @@ interface CodeBlockProps {
 export function CodeBlock({ children, language, className, hasCursor }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
-  const [highlighted, setHighlighted] = useState('')
-  const codeRef = useRef<HTMLElement>(null)
-  const lines = children.split('\n')
-  const isLong = lines.length > 30
-
-  useEffect(() => {
+  const highlighted = useMemo(() => {
     // Use highlight.js to highlight the code
     const lang = language || 'plaintext'
     const code = children.replace(/\n$/, '')
 
     try {
       const result = hljs.highlight(code, { language: lang })
-      setHighlighted(result.value)
+      return result.value
     } catch {
       // Fallback to auto-detection
-      const result = hljs.highlightAuto(code)
-      setHighlighted(result.value)
+      try {
+        const result = hljs.highlightAuto(code)
+        return result.value
+      } catch {
+        return ''
+      }
     }
   }, [children, language])
+
+  const codeRef = useRef<HTMLElement>(null)
+  const lines = children.split('\n')
+  const isLong = lines.length > 30
 
   const handleCopy = useCallback(async () => {
     try {

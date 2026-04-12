@@ -19,6 +19,11 @@ function formatSize(bytes: number): string {
   return `${bytes} B`
 }
 
+function formatContext(ctx: number): string {
+  if (ctx >= 1000) return `${(ctx / 1024).toFixed(0)}k`
+  return `${ctx}`
+}
+
 export function ModelSelector({
   models,
   selectedModel,
@@ -139,6 +144,12 @@ export function ModelSelector({
                         <>
                           <span className="text-border">|</span>
                           <span>{model.details.quantization_level}</span>
+                        </>
+                      )}
+                      {model.contextLength && (
+                        <>
+                          <span className="text-border">|</span>
+                          <span>{formatContext(model.contextLength)} ctx</span>
                         </>
                       )}
                     </div>

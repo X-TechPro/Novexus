@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { nanoid } from 'nanoid'
 import useSWR from 'swr'
 import type { Conversation, Message, ChatSettings, OllamaModel } from '@/lib/types'
 import {
@@ -45,6 +46,28 @@ export function useChatEngine() {
   )
 
   const models: OllamaModel[] = modelsData?.models || []
+
+  // Get current model info from the enriched models list
+  const currentModelObj = models.find((m) => m.name === selectedModel)
+  const detectedContext = currentModelObj?.contextLength || 4096
+
+  // Effective context length:
+  // If maxContextLength is set (not 0), respect it but don't exceed model limits.
+  // If 0, use detected model context.
+  const contextLength =
+    settings.maxContextLength > 0 ? Math.min(settings.maxContextLength, detectedContext) : detectedContext
+
+  const canThink = currentModelObj?.capabilities?.includes('thinking') || false
+  const canVision = currentModelObj?.capabilities?.includes('vision') || false
+  const canTools = currentModelObj?.capabilities?.includes('tools') || false
+
+  // If the model cannot think, disable thinking mode
+  useEffect(() => {
+    if (!canThink && enableThinking) {
+      setEnableThinking(false)
+    }
+  }, [canThink, enableThinking])
+
   const activeConversation = conversations.find((c) => c.id === activeConversationId) || null
 
   const persist = useCallback((convs: Conversation[]) => {
@@ -126,9 +149,25 @@ export function useChatEngine() {
     setStreamingThinking('')
   }, [])
 
-  const sendMessage = useCallback(async (content: string, editedConv?: Conversation) => {
+  const executeTool = async (toolName: string, args: any) => {
+    try {
+      const res = await fetch('/api/execute-tool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ toolName, args })
+      })
+      const data = await res.json()
+      return data.result || data.error || 'No result'
+    } catch (e: any) {
+      return `Error: ${e.message}`
+    }
+  }
+
+  const sendMessage = useCallback(async (content: string, images?: string[], editedConv?: Conversation) => {
     const model = selectedModel || models[0]?.name
     if (!model) return
+
+    const { TOOL_DEFINITIONS } = await import('@/lib/tool-definitions')
 
     let convId = activeConversationId
     let currentConversations = editedConv
@@ -142,10 +181,12 @@ export function useChatEngine() {
       setActiveConversationId(convId)
     }
 
-    const userMessage = createMessage('user', content)
+    // Only create a user message if content is provided
+    let userMessage: Message | null = content ? { ...createMessage('user', content), images } : null
+    
     currentConversations = currentConversations.map((c) => {
       if (c.id !== convId) return c
-      const msgs = [...c.messages, userMessage]
+      const msgs = userMessage ? [...c.messages, userMessage] : [...c.messages]
       const title = c.messages.length === 0 ? generateTitle(msgs) : c.title
       return { ...c, messages: msgs, model, title, updatedAt: Date.now() }
     })
@@ -160,7 +201,13 @@ export function useChatEngine() {
     const conv = currentConversations.find((c) => c.id === convId)!
     const ollamaMessages = [
       { role: 'system' as const, content: conv.systemPrompt },
-      ...conv.messages.map((m) => ({ role: m.role, content: m.content })),
+      ...conv.messages.map((m) => ({ 
+        role: m.role, 
+        content: m.content, 
+        images: m.images,
+        tool_calls: m.tool_calls,
+        tool_name: m.tool_name
+      })),
     ]
 
     const abortController = new AbortController()
@@ -173,6 +220,7 @@ export function useChatEngine() {
         body: JSON.stringify({
           messages: ollamaMessages,
           model,
+          tools: canTools ? TOOL_DEFINITIONS : undefined,
           ollamaUrl: settings.ollamaUrl,
           temperature: settings.temperature,
           topP: settings.topP,
@@ -181,6 +229,8 @@ export function useChatEngine() {
           repeatPenalty: settings.repeatPenalty,
           seed: settings.seed,
           think: enableThinking,
+          numCtx: contextLength,
+          stream: true,
         }),
         signal: abortController.signal,
       })
@@ -190,15 +240,16 @@ export function useChatEngine() {
         throw new Error(errorData.error || `HTTP ${response.status}`)
       }
 
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('No response stream')
-
       const decoder = new TextDecoder()
       let fullContent = ''
       let fullThinking = ''
       let evalCount = 0
       let evalDuration = 0
+      let toolCalls: any[] = []
       const startTime = Date.now()
+
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response stream')
 
       while (true) {
         const { done, value } = await reader.read()
@@ -210,6 +261,9 @@ export function useChatEngine() {
         for (const line of lines) {
           try {
             const parsed = JSON.parse(line)
+            if (parsed.message?.tool_calls) {
+              toolCalls.push(...parsed.message.tool_calls)
+            }
             if (parsed.message?.content) {
               fullContent += parsed.message.content
               setStreamingContent(fullContent)
@@ -222,15 +276,14 @@ export function useChatEngine() {
               evalCount = parsed.eval_count || 0
               evalDuration = parsed.eval_duration || 0
             }
-          } catch {
-            // Skip malformed JSON
-          }
+          } catch {}
         }
       }
 
       const assistantMessage: Message = {
         ...createMessage('assistant', fullContent),
         thinking: enableThinking ? (fullThinking || undefined) : undefined,
+        tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
         model,
         tokenCount: evalCount,
         generationTime: Date.now() - startTime,
@@ -241,6 +294,37 @@ export function useChatEngine() {
         return { ...c, messages: [...c.messages, assistantMessage], updatedAt: Date.now() }
       })
       persist(finalConversations)
+
+      // AGENT LOOP: If there are tool calls, execute them and continue
+      if (toolCalls.length > 0) {
+        const nextConversations = [...finalConversations]
+        const toolMessages: Message[] = []
+
+        for (const tool of toolCalls) {
+          const result = await executeTool(tool.function.name, tool.function.arguments)
+          const toolMsg: Message = {
+            id: nanoid(),
+            role: 'tool',
+            content: String(result),
+            tool_name: tool.function.name,
+            timestamp: Date.now()
+          }
+          toolMessages.push(toolMsg)
+        }
+
+        const updatedConvs = nextConversations.map(c => {
+          if (c.id !== convId) return c
+          return { ...c, messages: [...c.messages, ...toolMessages], updatedAt: Date.now() }
+        })
+        persist(updatedConvs)
+        
+        // Brief pause then call sendMessage again with empty content to continue turn
+        setTimeout(() => {
+          sendMessage('', undefined, updatedConvs.find(c => c.id === convId))
+        }, 10)
+        
+        return
+      }
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         // User cancelled - save what we have
@@ -269,7 +353,7 @@ export function useChatEngine() {
       setStreamingContent('')
       abortControllerRef.current = null
     }
-  }, [selectedModel, models, activeConversationId, conversations, persist, settings, streamingContent, enableThinking])
+  }, [selectedModel, models, activeConversationId, conversations, persist, settings, streamingContent, enableThinking, contextLength])
 
   const regenerateLastMessage = useCallback(async () => {
     if (!activeConversation || activeConversation.messages.length < 2) return
@@ -321,5 +405,8 @@ export function useChatEngine() {
     clearConversation,
     enableThinking,
     setEnableThinking,
+    canThink,
+    canVision,
+    canTools,
   }
 }

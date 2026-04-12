@@ -131,6 +131,19 @@ export function SettingsDialog({
                   step={256}
                   onChange={(v) => setLocal({ ...local, maxTokens: v })}
                 />
+                <SettingField
+                  label="Max Context Length"
+                  description="Overrides model limit. Set to 0 for automatic detection based on model metadata."
+                >
+                  <input
+                    type="number"
+                    value={local.maxContextLength}
+                    onChange={(e) => setLocal({ ...local, maxContextLength: Number(e.target.value) })}
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary/50"
+                    placeholder="0 (Auto)"
+                    min={0}
+                  />
+                </SettingField>
                 <SliderField
                   label="Repeat Penalty"
                   description="Penalizes repeated tokens"

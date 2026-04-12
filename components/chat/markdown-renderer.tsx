@@ -8,6 +8,7 @@ import rehypeKatex from 'rehype-katex'
 import rehypeRaw from 'rehype-raw'
 import 'katex/dist/katex.min.css'
 import { CodeBlock } from './code-block'
+import { MermaidDiagram } from './mermaid-diagram'
 import React, { type ComponentPropsWithoutRef, type ReactNode } from 'react'
 
 interface MarkdownRendererProps {
@@ -26,42 +27,66 @@ function extractText(children: ReactNode): string {
   return ''
 }
 
-// Custom plugin to add an inline non-blinking cursor at the deepest end of the content
 const addCursorPlugin = () => (tree: any) => {
-  if (!tree.children) return
-
   const cursorNode = {
     type: 'element',
     tagName: 'span',
     properties: {
-      className: ['inline-block', 'w-[2px]', 'h-4', 'bg-primary', 'ml-1', 'align-middle'],
+      className: ['inline-block', 'w-[2px]', 'h-[1em]', 'bg-primary', 'ml-0.5', 'translate-y-[0.1em]', 'animate-pulse'],
       'data-cursor': true
     },
     children: []
   }
 
-  // Find the deepest last child to ensure the cursor stays inline
-  let current = tree
   const voidElements = ['br', 'hr', 'img', 'input', 'link', 'meta']
 
-  while (current.children && current.children.length > 0) {
-    const lastChild = current.children[current.children.length - 1]
+  function injectCursor(node: any): boolean {
+    if (!node.children || node.children.length === 0) {
+      node.children = [cursorNode]
+      return true
+    }
 
+    // Find the last "meaningful" child (skip trailing whitespace/newlines)
+    let lastChildIndex = node.children.length - 1
+    while (lastChildIndex >= 0) {
+      const child = node.children[lastChildIndex]
+      if (child.type === 'text' && (child.value === '\n' || child.value === ' ')) {
+        lastChildIndex--
+        continue
+      }
+      break
+    }
+    
+    if (lastChildIndex < 0) {
+      node.children.push(cursorNode)
+      return true
+    }
+
+    const lastChild = node.children[lastChildIndex]
+
+    // If last child is text, append cursor after it in the current node
     if (lastChild.type === 'text') {
-      current.children.push(cursorNode)
-      return
+      node.children.splice(lastChildIndex + 1, 0, cursorNode)
+      return true
     }
 
+    // If last child is a void element, append cursor after it in current node
     if (lastChild.type === 'element' && voidElements.includes(lastChild.tagName)) {
-      current.children.push(cursorNode)
-      return
+      node.children.splice(lastChildIndex + 1, 0, cursorNode)
+      return true
     }
 
-    current = lastChild
+    // Otherwise, go deeper into the last element
+    if (lastChild.type === 'element') {
+      return injectCursor(lastChild)
+    }
+
+    // Fallback: append to current node
+    node.children.push(cursorNode)
+    return true
   }
 
-  current.children = current.children || []
-  current.children.push(cursorNode)
+  injectCursor(tree)
 }
 
 export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps) {
@@ -71,7 +96,6 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[
           rehypeRaw,
-          rehypeHighlight,
           [rehypeKatex, { output: 'htmlAndMathml' }] as any,
           ...(isStreaming ? [addCursorPlugin] : [])
         ]}
@@ -84,6 +108,16 @@ export function MarkdownRenderer({ content, isStreaming }: MarkdownRendererProps
             const match = /language-(\w+)/.exec(className || '')
             // Extract text content properly from React nodes
             const content = extractText(children)
+
+            // Special case for mermaid diagrams
+            const isMermaid = match?.[1] === 'mermaid' || match?.[1] === 'mer' || match?.[1] === 'mmd'
+            if (isMermaid) {
+              const childrenArray = React.Children.toArray(children)
+              const hasCursor = childrenArray.some(
+                child => React.isValidElement(child) && (child.props as any)?.['data-cursor']
+              )
+              return <MermaidDiagram code={content} hasCursor={hasCursor} isStreaming={isStreaming} />
+            }
 
             // Check if this is a block code (has language class or is multi-line)
             const isBlock = match || content.includes('\n')

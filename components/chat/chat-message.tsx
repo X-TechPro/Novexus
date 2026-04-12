@@ -6,6 +6,7 @@ import type { Message } from '@/lib/types'
 import { MarkdownRenderer } from './markdown-renderer'
 import { StreamingText } from './streaming-text'
 import { ReasoningBlock } from './reasoning-block'
+import { ToolCallBlock } from './tool-call-block'
 import {
   Copy,
   Check,
@@ -21,6 +22,7 @@ interface ChatMessageProps {
   message: Message
   isLast: boolean
   isStreaming?: boolean
+  isContinuation?: boolean
   streamingContent?: string
   streamingThinking?: string
   onEdit?: (messageId: string, content: string) => void
@@ -31,6 +33,7 @@ export function ChatMessage({
   message,
   isLast,
   isStreaming,
+  isContinuation,
   streamingContent,
   streamingThinking,
   onEdit,
@@ -79,38 +82,77 @@ export function ChatMessage({
     ? `${message.tokenCount} tokens | ${(message.generationTime / 1000).toFixed(1)}s | ${(message.tokenCount / (message.generationTime / 1000)).toFixed(0)} tok/s`
     : null
 
+  if (message.role === 'tool') {
+    return (
+      <div className="group relative px-4 py-1 md:px-8 lg:px-12">
+        <div className="mx-auto flex max-w-4xl gap-4">
+          <div className="w-8 shrink-0" /> {/* Spacer for avatar alignment */}
+          <div className="flex-1">
+            <ToolCallBlock 
+              toolName={message.tool_name || 'unknown'} 
+              result={message.content} 
+            />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn(
         'group relative px-4 py-3 md:px-8 lg:px-12',
+        isContinuation && 'py-0.5'
       )}
     >
       <div className="mx-auto flex max-w-4xl gap-4">
         {/* Avatar */}
         <div className="shrink-0 pt-0.5">
-          <div
-            className={cn(
-              'flex h-8 w-8 items-center justify-center rounded-xl text-xs font-medium',
-              isUser
-                ? 'bg-primary/15 text-primary'
-                : 'bg-accent text-accent-foreground'
-            )}
-          >
-            {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-          </div>
+          {!isContinuation ? (
+            <div
+              className={cn(
+                'flex h-8 w-8 items-center justify-center rounded-xl text-xs font-medium',
+                isUser
+                  ? 'bg-primary/15 text-primary'
+                  : 'bg-accent text-accent-foreground'
+              )}
+            >
+              {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+            </div>
+          ) : (
+            <div className="w-8" />
+          )}
         </div>
 
         {/* Content */}
         <div className="min-w-0 flex-1">
           {/* Role label */}
-          <div className="mb-1.5 flex items-center gap-2">
-            <span className="text-xs font-semibold text-foreground/80">
-              {isUser ? 'You' : message.model || 'Assistant'}
-            </span>
-          </div>
+          {!isContinuation && (
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className="text-xs font-semibold text-foreground/80">
+                {isUser ? 'You' : message.model || 'Assistant'}
+              </span>
+            </div>
+          )}
 
           {/* Thinking block */}
           {thinking && <ReasoningBlock thinking={thinking} />}
+
+          {/* Attached Images */}
+          {message.images && message.images.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-3">
+              {message.images.map((img, i) => (
+                <div key={i} className="group relative h-32 w-32 overflow-hidden rounded-xl border border-border shadow-sm transition-transform hover:scale-105 active:scale-95 duration-200">
+                  <img 
+                    src={`data:image/jpeg;base64,${img}`} 
+                    className="h-full w-full object-cover cursor-zoom-in" 
+                    alt="attachment" 
+                    onClick={() => window.open(`data:image/jpeg;base64,${img}`, '_blank')}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Message body */}
           {isEditing ? (
@@ -181,7 +223,7 @@ export function ChatMessage({
           )}
 
           {/* Token stats */}
-          {!isUser && tokenInfo && !isStreaming && (
+          {!isUser && tokenInfo && !isStreaming && !message.tool_calls && (
             <div className="mt-2 flex items-center gap-1.5 text-[10px] text-muted-foreground/40">
               <Zap className="h-2.5 w-2.5" />
               <span>{tokenInfo}</span>
@@ -189,7 +231,7 @@ export function ChatMessage({
           )}
 
           {/* Action buttons */}
-          {!isEditing && !isStreaming && (
+          {!isEditing && !isStreaming && !message.tool_calls && (
             <div className="mt-1.5 flex items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
               <ActionButton
                 icon={copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
