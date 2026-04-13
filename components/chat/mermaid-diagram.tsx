@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useId } from 'react'
 import mermaid from 'mermaid'
-import { Loader2 } from 'lucide-react'
+import { Loader2, AlertCircle } from 'lucide-react'
 
 interface MermaidDiagramProps {
   code: string
@@ -26,17 +26,23 @@ mermaid.initialize({
   securityLevel: 'loose',
   fontFamily: 'var(--font-mono)',
   logLevel: 'error',
+  suppressErrorRendering: true,
 })
 
 // Silence internal mermaid error logging to console
-mermaid.parseError = () => {}
+mermaid.parseError = (err, hash) => {
+  // We handle errors manually in the component
+}
 
 export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramProps) {
   const [svg, setSvg] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
   const [isRendered, setIsRendered] = useState(false)
   const [isClient, setIsClient] = useState(false)
-  const idRef = useRef(`mermaid-${Math.random().toString(36).substr(2, 9)}`)
+  
+  // Use a stable ID for hydration safety
+  const reactId = useId().replace(/:/g, '-')
+  const idRef = useRef(`mermaid-${reactId}`)
   const renderedCodeRef = useRef<string>('')
 
   // Handle hydration
@@ -62,6 +68,14 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
         // Double check cursor right before rendering in case it changed during async
         if (hasCursor) return
 
+        // Validate syntax first to avoid Mermaid's internal error handling
+        const isValid = await mermaid.parse(clean, { suppressErrors: true })
+        if (!isValid && isMounted) {
+          setError('Invalid diagram syntax. Please check the Mermaid code.')
+          setIsRendered(false)
+          return
+        }
+
         // Perform the full render
         const { svg: renderedSvg } = await mermaid.render(idRef.current, clean)
         
@@ -73,8 +87,9 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
         }
       } catch (err: any) {
         if (isMounted) {
+          // If parse didn't catch it, render might still throw
           console.error('Mermaid render error:', err)
-          setError('Invalid diagram syntax. Please check the Mermaid code.')
+          setError('Failed to render diagram. Please check the syntax.')
           setIsRendered(false)
         }
       }
@@ -100,15 +115,17 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
 
   if (error && !hasCursor) {
     return (
-      <div className="my-4 rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-xs text-destructive shadow-sm">
-        <div className="font-semibold mb-2 flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-destructive" />
+      <div className="my-4 overflow-hidden rounded-xl border border-destructive/20 bg-destructive/5 text-xs text-destructive shadow-sm">
+        <div className="flex items-center gap-2 bg-destructive/10 px-4 py-2 font-semibold">
+          <AlertCircle className="h-3.5 w-3.5" />
           Diagram Rendering Error
         </div>
-        <p className="opacity-80 mb-3">{error}</p>
-        <pre className="text-[10px] opacity-70 overflow-x-auto p-3 bg-black/20 rounded-lg border border-destructive/10">
-          {code}
-        </pre>
+        <div className="p-4 leading-relaxed">
+          <p className="mb-2 font-medium opacity-90">{error}</p>
+          <pre className="mt-2 max-h-[150px] overflow-auto rounded-lg border border-destructive/10 bg-black/20 p-3 text-[10px] opacity-70">
+            {code}
+          </pre>
+        </div>
       </div>
     )
   }
