@@ -38,7 +38,7 @@ A premium AI chat interface for your local [Ollama](https://ollama.com/) models.
 
 - [Node.js](https://nodejs.org/) 18+ and pnpm/npm
 - [Ollama](https://ollama.com/) installed and running locally on `http://localhost:11434`
-- At least one Ollama model pulled (e.g., `ollama pull llama3`)
+- At least one Ollama model pulled (e.g., `ollama pull qwen3.5`)
 
 ## Getting Started
 
@@ -132,6 +132,3 @@ Novexus/
 
 The default system prompt can be customized via the Settings Dialog. The AI is configured as "Novexus" — a Gen Z-style assistant that runs locally on your device.
 
-## License
-
-Private project — all rights reserved.
