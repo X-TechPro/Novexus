@@ -44,6 +44,11 @@ export function ChatArea({
 
   // Auto-scroll to bottom on new messages or streaming
   useEffect(() => {
+    // Re-enable auto-scroll when new content arrives during generation
+    if (isGenerating || streamingContent) {
+      shouldAutoScroll.current = true
+    }
+
     if (shouldAutoScroll.current && bottomRef.current) {
       // Use 'auto' behavior during generation to prevent 'smooth' jittering
       // while content is rapidly being added.
@@ -69,7 +74,7 @@ export function ChatArea({
       <div className="py-6">
         {messages.map((message, index) => {
           const prevMessage = index > 0 ? messages[index - 1] : null
-          const isContinuation = prevMessage && prevMessage.role !== 'user' && message.role !== 'user'
+          const isContinuation = !!prevMessage && prevMessage.role !== 'user' && message.role !== 'user'
 
           return (
             <ChatMessage

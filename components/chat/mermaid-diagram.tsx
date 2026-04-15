@@ -39,7 +39,8 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
   const [error, setError] = useState<string | null>(null)
   const [isRendered, setIsRendered] = useState(false)
   const [isClient, setIsClient] = useState(false)
-  
+  const [queuedCode, setQueuedCode] = useState<string | null>(null)
+
   // Use a stable ID for hydration safety
   const reactId = useId().replace(/:/g, '-')
   const idRef = useRef(`mermaid-${reactId}`)
@@ -50,24 +51,22 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
     setIsClient(true)
   }, [])
 
+  // During streaming, just track the latest code but don't render yet
   useEffect(() => {
+    if (isStreaming) {
+      setQueuedCode(cleanupCode(code))
+      return
+    }
+
+    // Streaming finished - render the queued code
     if (!isClient) return
-    
-    // EXTREMELY IMPORTANT: Do not render if the AI is still writing inside this block
-    // or if we already rendered this exact code
-    const clean = cleanupCode(code)
-    if (hasCursor) return 
-    if (isRendered && renderedCodeRef.current === clean) return
-    
+    const clean = queuedCode || cleanupCode(code)
+    if (!clean) return
+
     let isMounted = true
-    
+
     const attemptRender = async () => {
-      if (!clean) return
-
       try {
-        // Double check cursor right before rendering in case it changed during async
-        if (hasCursor) return
-
         // Validate syntax first to avoid Mermaid's internal error handling
         const isValid = await mermaid.parse(clean, { suppressErrors: true })
         if (!isValid && isMounted) {
@@ -78,7 +77,7 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
 
         // Perform the full render
         const { svg: renderedSvg } = await mermaid.render(idRef.current, clean)
-        
+
         if (isMounted) {
           setSvg(renderedSvg)
           setIsRendered(true)
@@ -87,7 +86,6 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
         }
       } catch (err: any) {
         if (isMounted) {
-          // If parse didn't catch it, render might still throw
           console.error('Mermaid render error:', err)
           setError('Failed to render diagram. Please check the syntax.')
           setIsRendered(false)
@@ -95,14 +93,13 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
       }
     }
 
-    // Always delay slightly to ensure DOM is ready and cursor has truly left the block
     const timeout = setTimeout(attemptRender, 50)
 
     return () => {
       isMounted = false
       clearTimeout(timeout)
     }
-  }, [code, hasCursor, isStreaming, isClient])
+  }, [isStreaming, isClient, queuedCode, code])
 
   // Hydration safety: render a placeholder with the same dimensions on server
   if (!isClient) {
@@ -147,9 +144,9 @@ export function MermaidDiagram({ code, hasCursor, isStreaming }: MermaidDiagramP
           </div>
         </div>
       )}
-      
+
       {isRendered && (
-        <div 
+        <div
           className="w-full overflow-x-auto flex justify-center mermaid-rendered select-none"
           dangerouslySetInnerHTML={{ __html: svg }}
         />

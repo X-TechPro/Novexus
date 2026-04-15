@@ -53,7 +53,7 @@ export default function ChatPage() {
     (messageId: string, newContent: string) => {
       const updatedConv = editMessage(messageId, newContent)
       if (updatedConv) {
-        sendMessage(newContent, updatedConv)
+        sendMessage(newContent, undefined, updatedConv)
       }
     },
     [editMessage, sendMessage]

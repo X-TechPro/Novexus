@@ -183,7 +183,7 @@ export function useChatEngine() {
 
     // Only create a user message if content is provided
     let userMessage: Message | null = content ? { ...createMessage('user', content), images } : null
-    
+
     currentConversations = currentConversations.map((c) => {
       if (c.id !== convId) return c
       const msgs = userMessage ? [...c.messages, userMessage] : [...c.messages]
@@ -201,9 +201,9 @@ export function useChatEngine() {
     const conv = currentConversations.find((c) => c.id === convId)!
     const ollamaMessages = [
       { role: 'system' as const, content: conv.systemPrompt },
-      ...conv.messages.map((m) => ({ 
-        role: m.role, 
-        content: m.content, 
+      ...conv.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
         images: m.images,
         tool_calls: m.tool_calls,
         tool_name: m.tool_name
@@ -276,7 +276,7 @@ export function useChatEngine() {
               evalCount = parsed.eval_count || 0
               evalDuration = parsed.eval_duration || 0
             }
-          } catch {}
+          } catch { }
         }
       }
 
@@ -317,12 +317,12 @@ export function useChatEngine() {
           return { ...c, messages: [...c.messages, ...toolMessages], updatedAt: Date.now() }
         })
         persist(updatedConvs)
-        
+
         // Brief pause then call sendMessage again with empty content to continue turn
         setTimeout(() => {
           sendMessage('', undefined, updatedConvs.find(c => c.id === convId))
         }, 10)
-        
+
         return
       }
     } catch (error) {
@@ -368,7 +368,7 @@ export function useChatEngine() {
     const updatedConvs = conversations.map((c) => (c.id === activeConversation.id ? updatedConv : c))
     persist(updatedConvs)
 
-    await sendMessage(lastUserMsg.content, updatedConv)
+    await sendMessage(lastUserMsg.content, undefined, updatedConv)
   }, [activeConversation, conversations, persist, sendMessage])
 
   const clearConversation = useCallback(() => {

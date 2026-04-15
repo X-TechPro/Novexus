@@ -2,6 +2,9 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import fs from 'fs/promises'
 import path from 'path'
+import { JSDOM } from 'jsdom'
+import { Readability } from '@mozilla/readability'
+import TurndownService from 'turndown'
 import { TOOL_DEFINITIONS } from './tool-definitions'
 
 const execAsync = promisify(exec)
@@ -145,13 +148,62 @@ export const tools = {
     }
   },
 
-  open_web: async ({ url }: { url: string }) => {
+  open_page: async ({ url }: { url: string }) => {
+    let browser
     try {
-      const res = await fetch(url)
-      const text = await res.text()
-      // Very crude text extraction (strip tags)
-      return text.replace(/<[^>]*>?/gm, ' ').slice(0, 2000)
+      const puppeteer = require('puppeteer')
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu'
+        ]
+      })
+
+      const page = await browser.newPage()
+      await page.setViewport({ width: 1280, height: 800 })
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36')
+      
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 30000 })
+      
+      // Get the rendered HTML
+      const html = await page.content()
+      await browser.close()
+      browser = null
+
+      // Parse with JSDOM and Readability
+      const dom = new JSDOM(html, { url })
+      const reader = new Readability(dom.window.document as any)
+      const article = reader.parse()
+
+      if (!article) {
+        return 'Error: Could not extract readable content from the page.'
+      }
+
+      // Convert to Markdown
+      const turndownService = new TurndownService({
+        headingStyle: 'atx',
+        codeBlockStyle: 'fenced'
+      })
+      
+      // Rule to handle images better or ignore them if they are too many
+      turndownService.addRule('images', {
+        filter: 'img',
+        replacement: (content, node: any) => {
+          const alt = node.getAttribute('alt') || ''
+          const src = node.getAttribute('src') || ''
+          return src ? `![${alt}](${src})` : ''
+        }
+      })
+
+      const markdown = turndownService.turndown(article.content || '')
+
+      return `## ${article.title}\n\n${markdown}`.slice(0, 15000) // generous limit for LLM context
+
     } catch (e: any) {
+      if (browser) await browser.close()
       return `Error: ${e.message}`
     }
   }

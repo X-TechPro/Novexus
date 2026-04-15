@@ -106,8 +106,8 @@ export const TOOL_DEFINITIONS = [
   {
     type: 'function',
     function: {
-      name: 'open_web',
-      description: 'Open a specific website URL to read its content.',
+      name: 'open_page',
+      description: 'Open a specific website URL to read its content in a clean, readable format.',
       parameters: {
         type: 'object',
         properties: {
