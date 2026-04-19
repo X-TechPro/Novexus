@@ -65,46 +65,46 @@ export function ChatArea({
     }
   }, [handleScroll])
 
-  if (messages.length === 0) {
-    return <WelcomeScreen onSuggestionClick={onSuggestionClick} hasModels={hasModels} />
-  }
-
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto">
-      <div className="py-6">
-        {messages.map((message, index) => {
-          const prevMessage = index > 0 ? messages[index - 1] : null
-          const isContinuation = !!prevMessage && prevMessage.role !== 'user' && message.role !== 'user'
+      {messages.length === 0 ? (
+        <WelcomeScreen onSuggestionClick={onSuggestionClick} hasModels={hasModels} />
+      ) : (
+        <div className="py-6">
+          {messages.map((message, index) => {
+            const prevMessage = index > 0 ? messages[index - 1] : null
+            const isContinuation = !!prevMessage && prevMessage.role !== 'user' && message.role !== 'user'
 
-          return (
+            return (
+              <ChatMessage
+                key={message.id}
+                message={message}
+                isLast={index === messages.length - 1}
+                isContinuation={isContinuation}
+                onEdit={message.role === 'user' ? onEdit : undefined}
+                onRegenerate={onRegenerate}
+              />
+            )
+          })}
+
+          {/* Streaming message */}
+          {isGenerating && (
             <ChatMessage
-              key={message.id}
-              message={message}
-              isLast={index === messages.length - 1}
-              isContinuation={isContinuation}
-              onEdit={message.role === 'user' ? onEdit : undefined}
-              onRegenerate={onRegenerate}
+              message={{
+                id: 'streaming',
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now(),
+              }}
+              isLast={true}
+              isStreaming={true}
+              isContinuation={messages.length > 0 && messages[messages.length - 1].role !== 'user'}
+              streamingContent={streamingContent}
+              streamingThinking={streamingThinking}
             />
-          )
-        })}
-
-        {/* Streaming message */}
-        {isGenerating && (
-          <ChatMessage
-            message={{
-              id: 'streaming',
-              role: 'assistant',
-              content: '',
-              timestamp: Date.now(),
-            }}
-            isLast={true}
-            isStreaming={true}
-            isContinuation={messages.length > 0 && messages[messages.length - 1].role !== 'user'}
-            streamingContent={streamingContent}
-            streamingThinking={streamingThinking}
-          />
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       <div ref={bottomRef} className="h-4" />
     </div>
