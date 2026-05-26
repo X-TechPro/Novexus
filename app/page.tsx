@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useChatEngine } from '@/hooks/use-chat-engine'
+import { DEFAULT_SYSTEM_PROMPT } from '@/lib/types'
 import { ChatSidebar } from '@/components/chat/chat-sidebar'
 import { ChatHeader } from '@/components/chat/chat-header'
 import { ChatArea } from '@/components/chat/chat-area'
@@ -124,7 +125,7 @@ export default function ChatPage() {
         onClose={() => setSettingsOpen(false)}
         settings={settings}
         onSave={updateSettings}
-        systemPrompt={activeConversation?.systemPrompt || "You are Novexus, a friendly and smart AI Assistant. You have access to tools, so if a task needs ANY of the tools, you should absolutely use them without even thinking. If the user asks you to remember something or is talking about his life/projects, you can use the `memories` tool to store or retrieve memories. Talk like a member of Gen Z. Take a forward-thinking view. Tell it like it is; don't sugar-coat responses. Use quick and clever humor when appropriate. Be concise but helpful. Format your responses nicely with clear structure. Format your responses using Markdown for better readability. Use tables, code blocks, and proper formatting. You are runnning locally on the user's device."}
+        systemPrompt={activeConversation?.systemPrompt || DEFAULT_SYSTEM_PROMPT}
         onSaveSystemPrompt={updateSystemPrompt}
       />
     </div>

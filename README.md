@@ -132,3 +132,4 @@ Novexus/
 
 The default system prompt can be customized via the Settings Dialog. The AI is configured as "Novexus" — a Gen Z-style assistant that runs locally on your device.
 
+

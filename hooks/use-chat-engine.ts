@@ -199,8 +199,45 @@ export function useChatEngine() {
     }
 
     const conv = currentConversations.find((c) => c.id === convId)!
+    
+    // Dynamic full local time generation to prevent AI hallucinations
+    const getFullLocalTime = () => {
+      const date = new Date()
+      const offset = date.getTimezoneOffset()
+      const offsetSign = offset > 0 ? '-' : '+'
+      const absOffset = Math.abs(offset)
+      const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0')
+      const offsetMinutes = String(absOffset % 60).padStart(2, '0')
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      const seconds = String(date.getSeconds()).padStart(2, '0')
+      const isoWithOffset = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`
+      
+      let readable = ''
+      try {
+        readable = date.toLocaleString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          second: 'numeric',
+          timeZoneName: 'short'
+        })
+      } catch (e) {
+        readable = date.toString()
+      }
+      return `${isoWithOffset} (${readable})`
+    }
+    
+    const timePromptAddition = `\n\n[Current Local Time Context]\nThe user's local time is: ${getFullLocalTime()}`
+
     const ollamaMessages = [
-      { role: 'system' as const, content: conv.systemPrompt },
+      { role: 'system' as const, content: (conv.systemPrompt || DEFAULT_SYSTEM_PROMPT) + timePromptAddition },
       ...conv.messages.map((m) => ({
         role: m.role,
         content: m.content,
