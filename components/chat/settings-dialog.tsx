@@ -90,6 +90,15 @@ export function SettingsDialog({
                     placeholder="http://localhost:11434"
                   />
                 </SettingField>
+                <SettingField label="API Key" description="Optional API key if your Ollama instance requires authentication">
+                  <input
+                    type="password"
+                    value={local.ollamaApiKey || ''}
+                    onChange={(e) => setLocal({ ...local, ollamaApiKey: e.target.value })}
+                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary/50"
+                    placeholder="No API key"
+                  />
+                </SettingField>
               </div>
             )}
 

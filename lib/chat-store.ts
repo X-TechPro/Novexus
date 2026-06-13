@@ -27,6 +27,7 @@ export function getSettings(): ChatSettings {
   if (!isBrowser()) {
     return {
       ollamaUrl: 'http://localhost:11434',
+      ollamaApiKey: '',
       temperature: 0.7,
       topP: 0.9,
       topK: 40,
@@ -41,6 +42,7 @@ export function getSettings(): ChatSettings {
     if (data) {
       return { ...{
         ollamaUrl: 'http://localhost:11434',
+        ollamaApiKey: '',
         temperature: 0.7,
         topP: 0.9,
         topK: 40,
@@ -52,6 +54,7 @@ export function getSettings(): ChatSettings {
     }
     return {
       ollamaUrl: 'http://localhost:11434',
+      ollamaApiKey: '',
       temperature: 0.7,
       topP: 0.9,
       topK: 40,
@@ -63,6 +66,7 @@ export function getSettings(): ChatSettings {
   } catch {
     return {
       ollamaUrl: 'http://localhost:11434',
+      ollamaApiKey: '',
       temperature: 0.7,
       topP: 0.9,
       topK: 40,

@@ -54,6 +54,7 @@ export interface OllamaStreamResponse {
 
 export interface ChatSettings {
   ollamaUrl: string
+  ollamaApiKey?: string
   temperature: number
   topP: number
   topK: number
@@ -65,6 +66,7 @@ export interface ChatSettings {
 
 export const DEFAULT_SETTINGS: ChatSettings = {
   ollamaUrl: 'http://localhost:11434',
+  ollamaApiKey: '',
   temperature: 0.7,
   topP: 0.9,
   topK: 40,

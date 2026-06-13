@@ -2,11 +2,17 @@ import { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
   const ollamaUrl = req.nextUrl.searchParams.get('url') || 'http://localhost:11434'
+  const apiKey = req.nextUrl.searchParams.get('key') || ''
+
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`
+  }
 
   try {
     const response = await fetch(`${ollamaUrl}/api/tags`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
     })
 
     if (!response.ok) {
@@ -25,7 +31,7 @@ export async function GET(req: NextRequest) {
         try {
           const detailResponse = await fetch(`${ollamaUrl}/api/show`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({ name: model.name }),
           })
 

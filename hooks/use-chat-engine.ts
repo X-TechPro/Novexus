@@ -31,7 +31,7 @@ export function useChatEngine() {
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const { data: modelsData, error: modelsError, isLoading: modelsLoading } = useSWR(
-    `/api/models?url=${encodeURIComponent(settings.ollamaUrl)}`,
+    `/api/models?url=${encodeURIComponent(settings.ollamaUrl)}&key=${encodeURIComponent(settings.ollamaApiKey || '')}`,
     modelsFetcher,
     {
       revalidateOnFocus: false,
@@ -259,6 +259,7 @@ export function useChatEngine() {
           model,
           tools: canTools ? TOOL_DEFINITIONS : undefined,
           ollamaUrl: settings.ollamaUrl,
+          ollamaApiKey: settings.ollamaApiKey,
           temperature: settings.temperature,
           topP: settings.topP,
           topK: settings.topK,

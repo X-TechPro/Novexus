@@ -3,13 +3,18 @@ import { NextRequest } from 'next/server'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { messages, model, ollamaUrl, temperature, topP, topK, maxTokens, repeatPenalty, seed, think, numCtx, tools, stream: reqStream } = body
+    const { messages, model, ollamaUrl, ollamaApiKey, temperature, topP, topK, maxTokens, repeatPenalty, seed, think, numCtx, tools, stream: reqStream } = body
  
     const ollamaEndpoint = `${ollamaUrl || 'http://localhost:11434'}/api/chat`
  
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (ollamaApiKey) {
+      headers['Authorization'] = `Bearer ${ollamaApiKey}`
+    }
+
     const response = await fetch(ollamaEndpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         model,
         messages,
