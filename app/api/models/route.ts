@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
-  const ollamaUrl = req.nextUrl.searchParams.get('url') || 'http://localhost:11434'
+  const provider = req.nextUrl.searchParams.get('provider') || 'ollama'
+  const defaultUrl = provider === 'llama-cpp' ? 'http://0.0.0.0:8080' : 'http://localhost:11434'
+  const targetUrl = req.nextUrl.searchParams.get('url') || defaultUrl
   const apiKey = req.nextUrl.searchParams.get('key') || ''
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -9,8 +11,87 @@ export async function GET(req: NextRequest) {
     headers['Authorization'] = `Bearer ${apiKey}`
   }
 
+  if (provider === 'llama-cpp') {
+    try {
+      // First try OpenAI compatible /v1/models endpoint
+      let response = await fetch(`${targetUrl}/v1/models`, {
+        method: 'GET',
+        headers,
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const rawModels = data.data || data.models || []
+        const models = rawModels.map((m: any) => ({
+          name: m.id || m.name || 'llama-cpp',
+          size: m.size || 0,
+          digest: '',
+          modified_at: new Date().toISOString(),
+          contextLength: 8192,
+          capabilities: ['tools', 'thinking'],
+        }))
+
+        if (models.length > 0) {
+          return new Response(JSON.stringify({ models }), {
+            headers: { 'Content-Type': 'application/json' },
+          })
+        }
+      }
+
+      // Fallback: Try /props endpoint on llama-server
+      const propsResponse = await fetch(`${targetUrl}/props`, {
+        method: 'GET',
+        headers,
+      })
+
+      if (propsResponse.ok) {
+        const propsData = await propsResponse.json()
+        const defaultModelName = propsData.default_generation_settings?.model || 'llama-cpp'
+        return new Response(
+          JSON.stringify({
+            models: [
+              {
+                name: defaultModelName,
+                size: 0,
+                digest: '',
+                modified_at: new Date().toISOString(),
+                contextLength: propsData.default_generation_settings?.n_ctx || 8192,
+                capabilities: ['tools', 'thinking'],
+              },
+            ],
+          }),
+          { headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // Default single loaded model fallback if llama-server is responsive
+      return new Response(
+        JSON.stringify({
+          models: [
+            {
+              name: 'llama-cpp',
+              size: 0,
+              digest: '',
+              modified_at: new Date().toISOString(),
+              contextLength: 8192,
+              capabilities: ['tools', 'thinking'],
+            },
+          ],
+        }),
+        { headers: { 'Content-Type': 'application/json' } }
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      return new Response(
+        JSON.stringify({ error: `Cannot connect to Llama.cpp server at ${targetUrl}: ${message}` }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+  }
+
+  // Default: Ollama provider
   try {
-    const response = await fetch(`${ollamaUrl}/api/tags`, {
+    const response = await fetch(`${targetUrl}/api/tags`, {
       method: 'GET',
       headers,
     })
@@ -29,7 +110,7 @@ export async function GET(req: NextRequest) {
     const enrichedModels = await Promise.all(
       models.map(async (model: any) => {
         try {
-          const detailResponse = await fetch(`${ollamaUrl}/api/show`, {
+          const detailResponse = await fetch(`${targetUrl}/api/show`, {
             method: 'POST',
             headers,
             body: JSON.stringify({ name: model.name }),
@@ -86,7 +167,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     return new Response(
-      JSON.stringify({ error: `Cannot connect to Ollama at ${ollamaUrl}: ${message}` }),
+      JSON.stringify({ error: `Cannot connect to Ollama at ${targetUrl}: ${message}` }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }

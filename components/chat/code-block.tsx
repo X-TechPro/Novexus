@@ -12,6 +12,40 @@ interface CodeBlockProps {
   hasCursor?: boolean
 }
 
+function splitHighlightedCodeIntoLines(html: string): string[] {
+  if (!html) return []
+  const rawLines = html.split('\n')
+  const openTags: string[] = []
+  const result: string[] = []
+
+  for (const rawLine of rawLines) {
+    let currentLine = openTags.join('')
+    let i = 0
+    while (i < rawLine.length) {
+      if (rawLine[i] === '<') {
+        const closeIndex = rawLine.indexOf('>', i)
+        if (closeIndex !== -1) {
+          const tag = rawLine.slice(i, closeIndex + 1)
+          if (tag.startsWith('</')) {
+            openTags.pop()
+          } else if (!tag.endsWith('/>')) {
+            openTags.push(tag)
+          }
+          currentLine += tag
+          i = closeIndex + 1
+          continue
+        }
+      }
+      currentLine += rawLine[i]
+      i++
+    }
+    currentLine += '</span>'.repeat(openTags.length)
+    result.push(currentLine)
+  }
+
+  return result
+}
+
 export function CodeBlock({ children, language, className, hasCursor }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -34,8 +68,13 @@ export function CodeBlock({ children, language, className, hasCursor }: CodeBloc
     }
   }, [children, language])
 
-  const codeRef = useRef<HTMLElement>(null)
-  const lines = children.split('\n')
+  const codeRef = useRef<HTMLDivElement>(null)
+  const lines = useMemo(() => children.replace(/\n$/, '').split('\n'), [children])
+  const highlightedLines = useMemo(() => {
+    if (!highlighted) return []
+    return splitHighlightedCodeIntoLines(highlighted)
+  }, [highlighted])
+
   const isLong = lines.length > 30
 
   const handleCopy = useCallback(async () => {
@@ -93,18 +132,26 @@ export function CodeBlock({ children, language, className, hasCursor }: CodeBloc
       </div>
 
       {/* Code content */}
-      <div className={cn('overflow-x-auto', collapsed && 'max-h-[120px] overflow-y-hidden')}>
-        <pre className="!m-0 !border-0 !bg-transparent !p-0">
-          <code
-            ref={codeRef}
-            className={cn('block px-4 py-3 font-mono text-[13px] leading-relaxed', language && `language-${language}`)}
-          >
-            <span dangerouslySetInnerHTML={{ __html: highlighted || children }} />
-            {hasCursor && (
-              <span className="inline-block w-[2px] h-4 bg-primary ml-1 align-middle" />
-            )}
-          </code>
-        </pre>
+      <div className={cn('overflow-x-auto py-3', collapsed && 'max-h-[120px] overflow-y-hidden')}>
+        <div ref={codeRef} className="table w-full border-collapse font-mono text-[13px] leading-relaxed">
+          {lines.map((rawLineText, i) => {
+            const lineHtml = highlightedLines[i] || rawLineText
+            const isLastLine = i === lines.length - 1
+            return (
+              <div key={i} className="table-row">
+                <div className="table-cell sticky left-0 z-10 select-none px-3 text-right align-baseline text-muted-foreground/35 border-r border-border/40 bg-[oklch(0.12_0.005_260)] w-[1%] whitespace-nowrap">
+                  {i + 1}
+                </div>
+                <div className="table-cell pl-4 pr-4 align-baseline whitespace-pre">
+                  <span dangerouslySetInnerHTML={{ __html: lineHtml || ' ' }} />
+                  {isLastLine && hasCursor && (
+                    <span className="inline-block w-[2px] h-4 bg-primary ml-1 align-middle" />
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
       {/* Collapsed gradient overlay */}

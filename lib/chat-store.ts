@@ -1,5 +1,5 @@
 import { nanoid } from 'nanoid'
-import type { Conversation, Message, ChatSettings } from './types'
+import { DEFAULT_SETTINGS, type Conversation, type Message, type ChatSettings } from './types'
 
 const STORAGE_KEY = 'novexus-conversations'
 const SETTINGS_KEY = 'novexus-settings'
@@ -24,57 +24,15 @@ export function saveConversations(conversations: Conversation[]) {
 }
 
 export function getSettings(): ChatSettings {
-  if (!isBrowser()) {
-    return {
-      ollamaUrl: 'http://localhost:11434',
-      ollamaApiKey: '',
-      temperature: 0.7,
-      topP: 0.9,
-      topK: 40,
-      maxTokens: 4096,
-      maxContextLength: 0,
-      repeatPenalty: 1.1,
-      seed: null,
-    }
-  }
+  if (!isBrowser()) return DEFAULT_SETTINGS
   try {
     const data = localStorage.getItem(SETTINGS_KEY)
     if (data) {
-      return { ...{
-        ollamaUrl: 'http://localhost:11434',
-        ollamaApiKey: '',
-        temperature: 0.7,
-        topP: 0.9,
-        topK: 40,
-        maxTokens: 4096,
-        maxContextLength: 0,
-        repeatPenalty: 1.1,
-        seed: null,
-      }, ...JSON.parse(data) }
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(data) }
     }
-    return {
-      ollamaUrl: 'http://localhost:11434',
-      ollamaApiKey: '',
-      temperature: 0.7,
-      topP: 0.9,
-      topK: 40,
-      maxTokens: 4096,
-      maxContextLength: 0,
-      repeatPenalty: 1.1,
-      seed: null,
-    }
+    return DEFAULT_SETTINGS
   } catch {
-    return {
-      ollamaUrl: 'http://localhost:11434',
-      ollamaApiKey: '',
-      temperature: 0.7,
-      topP: 0.9,
-      topK: 40,
-      maxTokens: 4096,
-      maxContextLength: 0,
-      repeatPenalty: 1.1,
-      seed: null,
-    }
+    return DEFAULT_SETTINGS
   }
 }
 

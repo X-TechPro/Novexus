@@ -78,8 +78,9 @@ export function ChatMessage({
     setIsEditing(false)
   }
 
+  const tps = message.tokensPerSecond ?? (message.tokenCount && message.generationTime ? message.tokenCount / (message.generationTime / 1000) : null)
   const tokenInfo = message.tokenCount && message.generationTime
-    ? `${message.tokenCount} tokens | ${(message.generationTime / 1000).toFixed(1)}s | ${(message.tokenCount / (message.generationTime / 1000)).toFixed(0)} tok/s`
+    ? `${message.tokenCount} tokens | ${(message.generationTime / 1000).toFixed(1)}s${tps ? ` | ${tps.toFixed(1)} tok/s` : ''}`
     : null
 
   if (message.role === 'tool') {

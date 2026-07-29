@@ -82,23 +82,76 @@ export function SettingsDialog({
           <div className="max-h-[400px] overflow-y-auto p-5">
             {tab === 'connection' && (
               <div className="flex flex-col gap-4">
-                <SettingField label="Ollama URL" description="The URL of your Ollama instance">
-                  <input
-                    value={local.ollamaUrl}
-                    onChange={(e) => setLocal({ ...local, ollamaUrl: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary/50"
-                    placeholder="http://localhost:11434"
-                  />
+                <SettingField label="Provider" description="Select your AI model backend provider">
+                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-input/50 p-1">
+                    <button
+                      type="button"
+                      onClick={() => setLocal({ ...local, provider: 'ollama' })}
+                      className={cn(
+                        'flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium transition-all',
+                        local.provider === 'ollama' || !local.provider
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Ollama
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLocal({ ...local, provider: 'llama-cpp' })}
+                      className={cn(
+                        'flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-medium transition-all',
+                        local.provider === 'llama-cpp'
+                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      Llama.cpp
+                    </button>
+                  </div>
                 </SettingField>
-                <SettingField label="API Key" description="Optional API key if your Ollama instance requires authentication">
-                  <input
-                    type="password"
-                    value={local.ollamaApiKey || ''}
-                    onChange={(e) => setLocal({ ...local, ollamaApiKey: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary/50"
-                    placeholder="No API key"
-                  />
-                </SettingField>
+
+                {local.provider === 'llama-cpp' ? (
+                  <>
+                    <SettingField label="Llama.cpp Server URL" description="The base URL of your llama-server instance">
+                      <input
+                        value={local.llamaCppUrl ?? 'http://0.0.0.0:8080'}
+                        onChange={(e) => setLocal({ ...local, llamaCppUrl: e.target.value })}
+                        className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary/50"
+                        placeholder="http://0.0.0.0:8080"
+                      />
+                    </SettingField>
+                    <SettingField label="API Key" description="API key required by your llama-server instance">
+                      <input
+                        type="password"
+                        value={local.llamaCppApiKey ?? '123'}
+                        onChange={(e) => setLocal({ ...local, llamaCppApiKey: e.target.value })}
+                        className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary/50"
+                        placeholder="123"
+                      />
+                    </SettingField>
+                  </>
+                ) : (
+                  <>
+                    <SettingField label="Ollama URL" description="The URL of your Ollama instance">
+                      <input
+                        value={local.ollamaUrl}
+                        onChange={(e) => setLocal({ ...local, ollamaUrl: e.target.value })}
+                        className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary/50"
+                        placeholder="http://localhost:11434"
+                      />
+                    </SettingField>
+                    <SettingField label="API Key" description="Optional API key if your Ollama instance requires authentication">
+                      <input
+                        type="password"
+                        value={local.ollamaApiKey || ''}
+                        onChange={(e) => setLocal({ ...local, ollamaApiKey: e.target.value })}
+                        className="w-full rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-primary/50"
+                        placeholder="No API key"
+                      />
+                    </SettingField>
+                  </>
+                )}
               </div>
             )}
 

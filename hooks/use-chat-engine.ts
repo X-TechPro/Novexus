@@ -30,16 +30,23 @@ export function useChatEngine() {
   const [enableThinking, setEnableThinking] = useState(true)
   const abortControllerRef = useRef<AbortController | null>(null)
 
+  const activeProvider = settings.provider || 'ollama'
+  const activeUrl = activeProvider === 'llama-cpp' ? (settings.llamaCppUrl || 'http://0.0.0.0:8080') : (settings.ollamaUrl || 'http://localhost:11434')
+  const activeApiKey = activeProvider === 'llama-cpp' ? (settings.llamaCppApiKey ?? '123') : (settings.ollamaApiKey || '')
+
   const { data: modelsData, error: modelsError, isLoading: modelsLoading } = useSWR(
-    `/api/models?url=${encodeURIComponent(settings.ollamaUrl)}&key=${encodeURIComponent(settings.ollamaApiKey || '')}`,
+    `/api/models?provider=${activeProvider}&url=${encodeURIComponent(activeUrl)}&key=${encodeURIComponent(activeApiKey)}`,
     modelsFetcher,
     {
       revalidateOnFocus: false,
       refreshInterval: 30000,
       onSuccess: (data) => {
-        if (data?.models?.length > 0 && !selectedModel) {
+        if (data?.models?.length > 0) {
           const active = conversations.find((c) => c.id === activeConversationId)
-          setSelectedModel(active?.model || data.models[0].name)
+          const validModel = data.models.some((m: any) => m.name === active?.model) ? active?.model : data.models[0].name
+          if (!selectedModel || !data.models.some((m: any) => m.name === selectedModel)) {
+            setSelectedModel(validModel)
+          }
         }
       },
     }
@@ -255,11 +262,14 @@ export function useChatEngine() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          provider: settings.provider || 'ollama',
           messages: ollamaMessages,
           model,
           tools: canTools ? TOOL_DEFINITIONS : undefined,
           ollamaUrl: settings.ollamaUrl,
           ollamaApiKey: settings.ollamaApiKey,
+          llamaCppUrl: settings.llamaCppUrl || 'http://0.0.0.0:8080',
+          llamaCppApiKey: settings.llamaCppApiKey ?? '123',
           temperature: settings.temperature,
           topP: settings.topP,
           topK: settings.topK,
@@ -286,6 +296,8 @@ export function useChatEngine() {
       let toolCalls: any[] = []
       const startTime = Date.now()
 
+      let tokensPerSecond = 0
+
       const reader = response.body?.getReader()
       if (!reader) throw new Error('No response stream')
 
@@ -311,12 +323,18 @@ export function useChatEngine() {
               setStreamingThinking(fullThinking)
             }
             if (parsed.done) {
-              evalCount = parsed.eval_count || 0
-              evalDuration = parsed.eval_duration || 0
+              evalCount = parsed.eval_count || evalCount
+              evalDuration = parsed.eval_duration || evalDuration
+              if (parsed.tokens_per_second) {
+                tokensPerSecond = parsed.tokens_per_second
+              }
             }
           } catch { }
         }
       }
+
+      const genTimeMs = Date.now() - startTime
+      const calculatedTps = tokensPerSecond || (evalCount > 0 && genTimeMs > 0 ? (evalCount / (genTimeMs / 1000)) : 0)
 
       const assistantMessage: Message = {
         ...createMessage('assistant', fullContent),
@@ -324,7 +342,8 @@ export function useChatEngine() {
         tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
         model,
         tokenCount: evalCount,
-        generationTime: Date.now() - startTime,
+        generationTime: genTimeMs,
+        tokensPerSecond: calculatedTps > 0 ? Math.round(calculatedTps * 10) / 10 : undefined,
       }
 
       const finalConversations = currentConversations.map((c) => {

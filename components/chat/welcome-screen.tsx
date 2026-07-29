@@ -5,6 +5,7 @@ import { Sparkles, Code, BookOpen, Lightbulb, MessageSquare } from 'lucide-react
 interface WelcomeScreenProps {
   onSuggestionClick: (text: string) => void
   hasModels: boolean
+  provider?: 'ollama' | 'llama-cpp'
 }
 
 const suggestions = [
@@ -34,7 +35,12 @@ const suggestions = [
   },
 ]
 
-export function WelcomeScreen({ onSuggestionClick, hasModels }: WelcomeScreenProps) {
+export function WelcomeScreen({ onSuggestionClick, hasModels, provider = 'ollama' }: WelcomeScreenProps) {
+  const providerLabel = provider === 'llama-cpp' ? 'Llama.cpp' : 'Ollama'
+  const hintText = provider === 'llama-cpp'
+    ? 'Make sure llama-server is running on your machine, or check your connection settings.'
+    : 'Make sure Ollama is running on your machine. Start it with ollama serve or check your connection settings.'
+
   return (
     <div className="flex min-h-full w-full flex-col items-center justify-center px-4 py-8 sm:py-12">
       <div className="flex w-full flex-col items-center text-center my-auto">
@@ -47,17 +53,13 @@ export function WelcomeScreen({ onSuggestionClick, hasModels }: WelcomeScreenPro
           Welcome to Novexus AI
         </h1>
         <p className="mb-6 sm:mb-8 max-w-md text-pretty text-xs sm:text-sm leading-relaxed text-muted-foreground">
-          Your private, local AI assistant powered by Ollama. Fast, secure, and completely on your machine.
+          Your private, local AI assistant. Fast, secure, and completely on your machine.
         </p>
 
         {!hasModels && (
           <div className="mb-6 sm:mb-8 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-left w-full max-w-md">
-            <p className="text-sm font-medium text-destructive/80">Cannot connect to Ollama</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Make sure Ollama is running on your machine. Start it with{' '}
-              <code className="rounded bg-secondary px-1.5 py-0.5 font-mono text-xs text-foreground">ollama serve</code>
-              {' '}or check your connection URL in settings.
-            </p>
+            <p className="text-sm font-medium text-destructive/80">Cannot connect to {providerLabel}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{hintText}</p>
           </div>
         )}
 

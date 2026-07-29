@@ -102,6 +102,7 @@ export default function ChatPage() {
           streamingContent={streamingContent}
           streamingThinking={streamingThinking}
           hasModels={models.length > 0}
+          provider={settings.provider}
           onEdit={handleEdit}
           onRegenerate={regenerateLastMessage}
           onSuggestionClick={handleSuggestionClick}

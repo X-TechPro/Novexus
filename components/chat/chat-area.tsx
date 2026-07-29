@@ -11,6 +11,7 @@ interface ChatAreaProps {
   streamingContent: string
   streamingThinking: string
   hasModels: boolean
+  provider?: 'ollama' | 'llama-cpp'
   onEdit: (messageId: string, content: string) => void
   onRegenerate: () => void
   onSuggestionClick: (text: string) => void
@@ -22,6 +23,7 @@ export function ChatArea({
   streamingContent,
   streamingThinking,
   hasModels,
+  provider,
   onEdit,
   onRegenerate,
   onSuggestionClick,
@@ -68,7 +70,7 @@ export function ChatArea({
   return (
     <div ref={containerRef} className="flex-1 overflow-y-auto">
       {messages.length === 0 ? (
-        <WelcomeScreen onSuggestionClick={onSuggestionClick} hasModels={hasModels} />
+        <WelcomeScreen onSuggestionClick={onSuggestionClick} hasModels={hasModels} provider={provider} />
       ) : (
         <div className="py-6">
           {messages.map((message, index) => {

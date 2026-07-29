@@ -7,6 +7,7 @@ export interface Message {
   model?: string
   tokenCount?: number
   generationTime?: number
+  tokensPerSecond?: number
   isStreaming?: boolean
   images?: string[]
   tool_calls?: any[]
@@ -52,9 +53,14 @@ export interface OllamaStreamResponse {
   prompt_eval_count?: number
 }
 
+export type ProviderType = 'ollama' | 'llama-cpp'
+
 export interface ChatSettings {
+  provider: ProviderType
   ollamaUrl: string
   ollamaApiKey?: string
+  llamaCppUrl: string
+  llamaCppApiKey?: string
   temperature: number
   topP: number
   topK: number
@@ -65,8 +71,11 @@ export interface ChatSettings {
 }
 
 export const DEFAULT_SETTINGS: ChatSettings = {
+  provider: 'ollama',
   ollamaUrl: 'http://localhost:11434',
   ollamaApiKey: '',
+  llamaCppUrl: 'http://0.0.0.0:8080',
+  llamaCppApiKey: '123',
   temperature: 0.7,
   topP: 0.9,
   topK: 40,

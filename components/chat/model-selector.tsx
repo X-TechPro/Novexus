@@ -101,8 +101,8 @@ export function ModelSelector({
           <div className="max-h-64 overflow-y-auto p-1">
             {error ? (
               <div className="px-3 py-6 text-center">
-                <p className="text-xs text-destructive/80">Cannot connect to Ollama</p>
-                <p className="mt-1 text-[10px] text-muted-foreground/50">Check your Ollama URL in settings</p>
+                <p className="text-xs text-destructive/80">Cannot connect to AI provider</p>
+                <p className="mt-1 text-[10px] text-muted-foreground/50">Check connection settings</p>
               </div>
             ) : filtered.length === 0 ? (
               <div className="px-3 py-6 text-center text-xs text-muted-foreground/60">
